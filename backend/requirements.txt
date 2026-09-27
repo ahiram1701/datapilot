@@ -1,0 +1,10 @@
+fastapi>=0.115
+uvicorn[standard]>=0.32
+python-multipart==0.0.*
+python-dotenv==1.*
+pandas>=2.2
+numpy>=2
+scikit-learn>=1.5
+chromadb>=1.0
+anthropic
+openai
