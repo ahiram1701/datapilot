@@ -51,6 +51,31 @@ def correlations(df: pd.DataFrame, target: str | None = None) -> dict[str, Any]:
     return {"top_pairs": [{"a": a, "b": b, "r": _r(v)} for (a, b), v in pairs.items()]}
 
 
+def segment_analysis(df: pd.DataFrame, target: str) -> dict[str, Any]:
+    """Promedio del objetivo por segmento: por categoría en columnas de texto y
+    por cuartil en columnas numéricas. Con un objetivo 0/1 es la tasa (p. ej.
+    de abandono) de cada grupo; complementa a `correlations`, que ignora las
+    variables categóricas y las relaciones no lineales."""
+    if target not in df.columns:
+        raise ValueError(f"La columna objetivo '{target}' no existe. Columnas: {list(df.columns)}")
+    if not pd.api.types.is_numeric_dtype(df[target]):
+        return {"error": f"'{target}' debe ser numérica (p. ej. 0/1) para promediarla"}
+    data = df.dropna(subset=[target])
+    segments: dict[str, Any] = {}
+    for col in data.columns.drop(target):
+        s = data[col]
+        if pd.api.types.is_numeric_dtype(s) and s.nunique() > 10:
+            groups = pd.qcut(s, 4, duplicates="drop").astype(str)
+        elif s.nunique() <= 20:
+            groups = s.astype(str)
+        else:
+            continue  # texto libre o IDs: no aportan segmentos útiles
+        stats = data.groupby(groups, observed=True)[target].agg(["mean", "size"])
+        segments[col] = {str(k): {"mean": _r(r["mean"]), "n": int(r["size"])}
+                         for k, r in stats.sort_values("mean", ascending=False).iterrows()}
+    return {"target": target, "overall_mean": _r(data[target].mean()), "segments": segments}
+
+
 def is_classification(y: pd.Series) -> bool:
     """Heurística: texto/booleano o pocos valores enteros distintos => clasificación."""
     if not pd.api.types.is_numeric_dtype(y) or pd.api.types.is_bool_dtype(y):
@@ -83,16 +108,27 @@ def _build_model(model_type: str, classification: bool):
             "random_forest": RandomForestRegressor(n_estimators=200, random_state=42)}[model_type]
 
 
-def _importances(model, columns) -> dict[str, float]:
+def _importances(model, columns) -> dict[str, Any]:
+    """Qué variables usa más el modelo, SIN perder la dirección del efecto cuando
+    el modelo la tiene: el LLM necesita saber si una variable sube o baja el objetivo."""
     est = model[-1] if hasattr(model, "steps") else model
     if hasattr(est, "feature_importances_"):
-        vals = est.feature_importances_
-    elif hasattr(est, "coef_"):
-        vals = np.abs(np.atleast_2d(est.coef_)).mean(axis=0)  # coef estandarizados
-    else:
-        return {}
-    top = sorted(zip(columns, vals), key=lambda kv: -kv[1])[:8]
-    return {k: _r(v) for k, v in top}
+        top = sorted(zip(columns, est.feature_importances_), key=lambda kv: -kv[1])[:8]
+        return {"feature_importance": {k: _r(v) for k, v in top},
+                "note": "La importancia de un árbol indica cuánto se usa la variable, no si "
+                        "sube o baja el objetivo; para la dirección usa correlations o segment_analysis."}
+    if hasattr(est, "coef_"):
+        coef = np.atleast_2d(est.coef_)
+        if coef.shape[0] == 1:  # regresión o clasificación binaria: el signo es interpretable
+            top = sorted(zip(columns, coef[0]), key=lambda kv: -abs(kv[1]))[:8]
+            return {"coefficients": {k: _r(v) for k, v in top},
+                    "note": "Coeficientes sobre variables estandarizadas: positivo = al aumentar la "
+                            "variable aumenta el objetivo (o la probabilidad de la clase 1); negativo = lo reduce."}
+        vals = np.abs(coef).mean(axis=0)  # multiclase: sin un único signo por variable
+        top = sorted(zip(columns, vals), key=lambda kv: -kv[1])[:8]
+        return {"feature_importance": {k: _r(v) for k, v in top},
+                "note": "Magnitud media de coeficientes (multiclase); no indica dirección."}
+    return {}
 
 
 def train_model(df: pd.DataFrame, target: str, model_type: str = "random_forest",
@@ -114,7 +150,7 @@ def train_model(df: pd.DataFrame, target: str, model_type: str = "random_forest"
                    "rmse_test": _r(np.sqrt(mean_squared_error(y_te, pred_te)))}
     return {"task": "classification" if clf else "regression", "model": model_type,
             "n_train": len(X_tr), "n_test": len(X_te), "metrics": metrics,
-            "feature_importance": _importances(model, X.columns)}
+            **_importances(model, X.columns)}
 
 
 def cross_validate(df: pd.DataFrame, target: str, model_type: str = "random_forest",
