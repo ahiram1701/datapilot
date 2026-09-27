@@ -38,6 +38,17 @@ def _dataset_info(dataset_id: str, name: str, df: pd.DataFrame) -> dict:
             "preview": json.loads(df.head(5).to_json(orient="records"))}
 
 
+def friendly_error(exc: Exception) -> str:
+    """Traduce errores comunes de los proveedores a un mensaje accionable."""
+    detail = f"{type(exc).__name__}: {exc}"
+    if type(exc).__name__ == "RateLimitError":  # openai y anthropic usan este nombre
+        return ("Se alcanzó el límite de uso del proveedor (tokens o peticiones por minuto). "
+                "Prueba: esperar un minuto, bajar LLM_MAX_TOKENS (p. ej. 800) o "
+                "LLM_MAX_OBSERVATION_CHARS (p. ej. 2000), usar LLM_REASONING_EFFORT=low/none, "
+                f"o cambiar de modelo.\n\nDetalle: {detail}")
+    return detail
+
+
 def _register(name: str, df: pd.DataFrame) -> dict:
     dataset_id = uuid.uuid4().hex[:8]
     DATASETS[dataset_id] = df
@@ -96,7 +107,7 @@ def chat(req: ChatRequest):
                               on_step=lambda s: events.put(("step", s.to_dict())))
             events.put(("answer", {"answer": answer}))
         except Exception as exc:  # noqa: BLE001
-            events.put(("error", {"error": f"{type(exc).__name__}: {exc}"}))
+            events.put(("error", {"error": friendly_error(exc)}))
         finally:
             events.put(None)
 

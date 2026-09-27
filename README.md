@@ -67,12 +67,23 @@ Sin API key funciona con `LLM_PROVIDER=mock`, un proveedor determinista que reco
 ### Proveedores soportados
 | `LLM_PROVIDER` | Variables | Costo | Notas |
 |---|---|---|---|
-| `groq` | `GROQ_API_KEY`, `GROQ_MODEL` | **Gratis** | Llama 3.3 70B, muy rápido |
+| `groq` | `GROQ_API_KEY`, `GROQ_MODEL` | **Gratis** | GPT-OSS 120B o Qwen3, muy rápido |
 | `gemini` | `GEMINI_API_KEY`, `GEMINI_MODEL` | **Gratis** | Gemini Flash |
 | `ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | **Gratis** (local) | Corre en tu equipo |
 | `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | De pago | Tool use nativo de Claude |
 | `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL` | De pago | Function calling |
 | `mock` | — | — | Tests y CI sin keys |
+
+### Límites de tokens en planes gratuitos
+Los planes gratuitos limitan tokens por minuto (Groq: 8K TPM, y algunos modelos también ~1K tokens de salida por minuto). Un flujo multi-agente hace varias llamadas, así que DataPilot permite ajustarlo:
+
+| Variable | Efecto | Recomendado gratis |
+|---|---|---|
+| `LLM_MAX_TOKENS` | Tope de tokens de salida por petición (el proveedor lo reserva contra tu límite) | `800` |
+| `LLM_REASONING_EFFORT` | Cuánto "piensa" un modelo de razonamiento (los tokens de razonamiento también cuentan como salida) | `low` (gpt-oss) · `none` (qwen) |
+| `LLM_MAX_OBSERVATION_CHARS` | Recorte del resultado de cada tool; se reenvía al LLM en cada paso siguiente | `2000` |
+
+Los errores 429 por minuto se reintentan automáticamente respetando `retry-after`. Si una respuesta se corta, la UI lo indica con *[respuesta truncada por max_tokens]*.
 
 Groq, Gemini y Ollama exponen APIs compatibles con OpenAI, así que comparten `OpenAIProvider`. Cada uno es solo un *preset* (base_url, modelo por defecto y variable de la key) en [`openai_p.py`](backend/app/llm/openai_p.py).
 

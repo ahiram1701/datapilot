@@ -8,7 +8,7 @@ from __future__ import annotations
 from dataclasses import asdict, dataclass
 from typing import Any, Callable
 
-from ..llm.base import LLMProvider
+from ..llm.base import LLMProvider, env_int
 from .tools import ToolRegistry
 
 
@@ -25,8 +25,6 @@ class Step:
 
 
 StepCallback = Callable[[Step], None]
-
-MAX_OBSERVATION_CHARS = 4000  # evita inundar el contexto con outputs enormes
 
 
 class ReActAgent:
@@ -58,8 +56,11 @@ class ReActAgent:
                 emit(Step(self.name, "action", f"{call.name}({call.arguments})",
                           tool=call.name, args=call.arguments))
                 result = self.tools.execute(call.name, call.arguments)
-                if len(result) > MAX_OBSERVATION_CHARS:
-                    result = result[:MAX_OBSERVATION_CHARS] + "... [truncado]"
+                # Evita inundar el contexto: cada observación se reenvía en todos
+                # los pasos siguientes, así que su tamaño multiplica los tokens.
+                limit = env_int("LLM_MAX_OBSERVATION_CHARS", 4000)
+                if len(result) > limit:
+                    result = result[:limit] + "... [truncado]"
                 emit(Step(self.name, "observation", result, tool=call.name))
                 messages.append({"role": "tool", "tool_call_id": call.id,
                                  "name": call.name, "content": result})
