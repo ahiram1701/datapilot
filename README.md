@@ -1,0 +1,112 @@
+# DataPilot 🧭
+
+**Equipo multi-agente basado en LLMs que analiza datasets y entrena modelos de machine learning.**
+Subes un CSV, haces una pregunta en lenguaje natural ("¿qué variables predicen el precio?") y un orquestador
+coordina agentes especialistas que exploran los datos, entrenan y validan modelos, y explican los resultados.
+Cada paso del razonamiento (Thought → Action → Observation) se transmite en vivo a la interfaz.
+
+![CI](../../actions/workflows/ci.yml/badge.svg)
+
+## Arquitectura
+
+```mermaid
+flowchart LR
+    UI[React + Vite<br/>useAgentChat hook] -- REST + SSE --> API[FastAPI]
+    API --> O[Orchestrator<br/>ReAct]
+    O -- tool: ask_data_analyst --> DA[DataAnalyst<br/>ReAct]
+    O -- tool: ask_ml_engineer --> ML[MLEngineer<br/>ReAct]
+    O -- tool: ask_explainer --> EX[Explainer<br/>ReAct]
+    DA --> T1[describe_dataset<br/>correlations]
+    ML --> T2[train_model · cross_validate<br/>gradient_descent_regression]
+    EX --> V[(ChromaDB<br/>base vectorial)]
+    O & DA & ML & EX -.-> LLM{{LLMProvider<br/>Anthropic · OpenAI · Ollama · Mock}}
+```
+
+| Capa | Qué hace | Archivo |
+|---|---|---|
+| **Abstracción LLM** | Interfaz única `chat(system, messages, tools)`; cada proveedor traduce a su API. Cambiar de modelo = cambiar `LLM_PROVIDER`. | [`backend/app/llm/`](backend/app/llm) |
+| **Agente ReAct** | Loop propio (sin frameworks): razona, pide una tool, observa el resultado, repite. Límite de pasos, errores devueltos al LLM para que se autocorrija, truncado de observaciones. | [`agents/react.py`](backend/app/agents/react.py) |
+| **Multi-agente** | Patrón *agents-as-tools*: para el orquestador, cada especialista es una herramienta más. | [`agents/team.py`](backend/app/agents/team.py) |
+| **Tool use** | Registro de herramientas con JSON Schema. | [`agents/tools.py`](backend/app/agents/tools.py) |
+| **ML** | Regresión/clasificación (detección automática), regresión lineal/logística, árbol de decisión, random forest, train/test split, k-fold CV, R², MAE, RMSE, accuracy, F1. | [`ml/tools_ml.py`](backend/app/ml/tools_ml.py) |
+| **Matemáticas** | Regresión lineal con **descenso de gradiente implementado en NumPy**, comparada contra la solución cerrada de scikit-learn. | [`ml/from_scratch.py`](backend/app/ml/from_scratch.py) |
+| **RAG** | Base de conocimiento de conceptos de ML indexada en **ChromaDB**; el Explainer la consulta por similitud semántica. | [`rag/`](backend/app/rag) |
+| **API REST** | FastAPI: carga de CSV, datasets de ejemplo, chat con streaming **Server-Sent Events**. | [`main.py`](backend/app/main.py) |
+| **Frontend** | React con hooks (`useState`, `useEffect`, `useCallback`, `useRef`, hook propio `useAgentChat`), consumo de API y lectura manual de un stream SSE vía `fetch`. | [`frontend/src/`](frontend/src) |
+| **DevOps** | Docker multi-stage, docker compose, GitHub Actions (tests + build + imagen). | [`docker-compose.yml`](docker-compose.yml) |
+
+## Inicio rápido
+
+### Con Docker
+```bash
+cp .env.example .env          # elige LLM_PROVIDER y pon tu API key
+docker compose up --build
+```
+Abre http://localhost:8080
+
+### Local
+```bash
+# Backend
+python -m venv .venv && .venv/Scripts/activate    # Linux/Mac: source .venv/bin/activate
+pip install -r backend/requirements-dev.txt
+cp .env.example .env
+cd backend && uvicorn app.main:app --reload
+
+# Frontend (otra terminal)
+cd frontend && npm install && npm run dev
+```
+Abre http://localhost:5173
+
+Sin API key funciona con `LLM_PROVIDER=mock`, un proveedor determinista que recorre el flujo completo.
+
+### Proveedores soportados
+| `LLM_PROVIDER` | Variables | Notas |
+|---|---|---|
+| `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Tool use nativo de Claude |
+| `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL` | Function calling |
+| `ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Modelos locales y gratis (reusa el proveedor OpenAI) |
+| `mock` | — | Tests y CI sin keys |
+
+## Tests
+```bash
+cd backend && pytest -q
+```
+Cubren el loop ReAct (ejecución de tools, errores, límite de pasos), la delegación multi-agente, las herramientas de ML, la búsqueda semántica, la API con streaming y que el descenso de gradiente converja a los coeficientes reales.
+
+## Fundamentos
+
+### Descenso de gradiente (implementado a mano)
+Para ŷ = Xw + b y la pérdida MSE = (1/n)·Σ(ŷ − y)²:
+
+- ∂L/∂w = (2/n)·Xᵀ(ŷ − y) → un solo producto matriz-vector da todas las derivadas.
+- ∂L/∂b = (2/n)·Σ(ŷ − y)
+- Actualización: w ← w − α·∂L/∂w
+
+En el dataset de viviendas, la versión con NumPy alcanza **R² = 0.911, igual que scikit-learn**. El MSE es convexo, así que el método iterativo converge al mismo mínimo que la solución cerrada.
+
+### ReAct
+El agente alterna **razonamiento** y **acción**: el LLM decide qué herramienta usar, el sistema la ejecuta y devuelve la observación, y el ciclo se repite hasta que el LLM responde sin pedir herramientas. Es la base de casi todos los agentes modernos.
+
+### Deep learning y Transformers
+Los agentes funcionan sobre LLMs, que son **Transformers**: cada token calcula su atención sobre los demás con softmax(QKᵀ/√d)·V. A diferencia de las **RNN**, que procesan la secuencia paso a paso, la atención procesa todo en paralelo y captura dependencias largas. Las **CNN** aplican el mismo principio de pesos compartidos, pero sobre ventanas locales de una imagen. Todos se entrenan con el mismo ciclo que implementa `from_scratch.py`: pérdida → gradiente (backpropagation) → paso de descenso.
+
+Para datos tabulares como los de este proyecto, los ensambles de árboles suelen superar a las redes neuronales; por eso el MLEngineer compara random forest, árbol y modelos lineales.
+
+## Estructura
+```
+backend/app/
+  llm/        base.py · anthropic_p.py · openai_p.py (+Ollama) · mock_p.py · factory.py
+  agents/     react.py · tools.py · team.py
+  ml/         tools_ml.py · from_scratch.py
+  rag/        store.py · docs/*.md
+  main.py
+frontend/src/ App.jsx · api.js · hooks/useAgentChat.js · components/
+sample_data/  viviendas.csv (regresión) · clientes_churn.csv (clasificación)
+scripts/      make_samples.py
+```
+
+## Posibles mejoras
+- Memoria de conversación entre preguntas y persistencia de datasets (Redis/Postgres).
+- Agente que genere gráficas (matplotlib → imagen en la UI).
+- Ejecución de tools en paralelo y caché de resultados.
+- Evaluación automática de las respuestas de los agentes (LLM-as-judge).
