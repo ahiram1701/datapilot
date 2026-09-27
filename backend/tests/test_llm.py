@@ -5,7 +5,7 @@ from app.llm.mock_p import MockProvider
 
 
 @pytest.mark.parametrize("name, key_var, url_part, model", [
-    ("groq", "GROQ_API_KEY", "api.groq.com", "llama-3.3-70b-versatile"),
+    ("groq", "GROQ_API_KEY", "api.groq.com", "openai/gpt-oss-120b"),
     ("gemini", "GEMINI_API_KEY", "generativelanguage.googleapis.com", "gemini-3.8-flash"),
 ])
 def test_free_providers_use_compatible_endpoint(monkeypatch, name, key_var, url_part, model):
@@ -19,8 +19,8 @@ def test_free_providers_use_compatible_endpoint(monkeypatch, name, key_var, url_
 
 def test_model_can_be_overridden(monkeypatch):
     monkeypatch.setenv("GROQ_API_KEY", "test-key")
-    monkeypatch.setenv("GROQ_MODEL", "llama-3.1-8b-instant")
-    assert get_provider("groq").model == "llama-3.1-8b-instant"
+    monkeypatch.setenv("GROQ_MODEL", "openai/gpt-oss-20b")
+    assert get_provider("groq").model == "openai/gpt-oss-20b"
 
 
 def test_missing_key_gives_helpful_error(monkeypatch):
@@ -50,5 +50,5 @@ def test_empty_env_values_fall_back_to_defaults(monkeypatch):
     monkeypatch.setenv("GROQ_MODEL", "")
     monkeypatch.setenv("GROQ_BASE_URL", "")
     provider = get_provider("groq")
-    assert provider.model == "llama-3.3-70b-versatile"
+    assert provider.model == "openai/gpt-oss-120b"
     assert "api.groq.com" in str(provider.client.base_url)

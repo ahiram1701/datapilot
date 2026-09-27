@@ -11,6 +11,7 @@ Formato neutral de mensajes (lista de dicts):
 """
 from __future__ import annotations
 
+import os
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from typing import Any
@@ -51,3 +52,14 @@ class LLMProvider(ABC):
     def chat(self, system: str, messages: list[dict[str, Any]],
              tools: list[ToolSpec] | None = None) -> LLMResponse:
         """Envía la conversación y devuelve una respuesta normalizada."""
+
+
+def env_int(name: str, default: int) -> int:
+    """Entero desde una variable de entorno; vacía o inválida => default."""
+    try:
+        return int(os.getenv(name) or default)
+    except ValueError:
+        return default
+
+
+TRUNCATED_NOTE = "\n[respuesta truncada por max_tokens]"

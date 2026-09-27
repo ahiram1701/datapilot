@@ -3,7 +3,7 @@ from typing import Any
 
 import anthropic
 
-from .base import LLMProvider, LLMResponse, ToolCall, ToolSpec
+from .base import TRUNCATED_NOTE, LLMProvider, LLMResponse, ToolCall, ToolSpec, env_int
 
 
 class AnthropicProvider(LLMProvider):
@@ -46,10 +46,12 @@ class AnthropicProvider(LLMProvider):
             kwargs["tools"] = [{"name": t.name, "description": t.description,
                                 "input_schema": t.parameters} for t in tools]
         resp = self.client.messages.create(
-            model=self.model, max_tokens=16000, system=system,
+            model=self.model, max_tokens=env_int("LLM_MAX_TOKENS", 16000), system=system,
             messages=self._to_api_messages(messages), **kwargs,
         )
         text = "".join(b.text for b in resp.content if b.type == "text") or None
         calls = [ToolCall(b.id, b.name, dict(b.input))
                  for b in resp.content if b.type == "tool_use"]
+        if resp.stop_reason == "max_tokens" and not calls:
+            text = (text or "") + TRUNCATED_NOTE
         return LLMResponse(text=text, tool_calls=calls, raw=resp.content)

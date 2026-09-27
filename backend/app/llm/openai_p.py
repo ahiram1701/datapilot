@@ -7,7 +7,7 @@ from typing import Any
 
 from openai import OpenAI
 
-from .base import LLMProvider, LLMResponse, ToolCall, ToolSpec
+from .base import TRUNCATED_NOTE, LLMProvider, LLMResponse, ToolCall, ToolSpec, env_int
 
 
 class OpenAIProvider(LLMProvider):
@@ -19,6 +19,11 @@ class OpenAIProvider(LLMProvider):
         self.client = OpenAI(base_url=base_url, api_key=api_key or os.getenv("OPENAI_API_KEY"),
                              max_retries=max_retries)
         self.model = model or (os.getenv("OPENAI_MODEL") or "gpt-4o-mini")
+        # Límite de tokens de salida por petición: clave en planes gratuitos,
+        # donde el proveedor reserva max_tokens contra el límite por minuto.
+        self.max_tokens = env_int("LLM_MAX_TOKENS", 1024)
+        # Modelos de razonamiento (gpt-oss, qwen3): none/low reduce tokens "pensando"
+        self.reasoning_effort = os.getenv("LLM_REASONING_EFFORT") or None
 
     @staticmethod
     def _to_api_messages(system: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -40,7 +45,9 @@ class OpenAIProvider(LLMProvider):
         return out
 
     def chat(self, system, messages, tools=None) -> LLMResponse:
-        kwargs: dict[str, Any] = {}
+        kwargs: dict[str, Any] = {"max_tokens": self.max_tokens}
+        if self.reasoning_effort:
+            kwargs["reasoning_effort"] = self.reasoning_effort
         if tools:
             kwargs["tools"] = [{"type": "function", "function": {
                 "name": t.name, "description": t.description, "parameters": t.parameters,
@@ -48,7 +55,8 @@ class OpenAIProvider(LLMProvider):
         resp = self.client.chat.completions.create(
             model=self.model, messages=self._to_api_messages(system, messages), **kwargs,
         )
-        msg = resp.choices[0].message
+        choice = resp.choices[0]
+        msg = choice.message
         calls = []
         for tc in msg.tool_calls or []:
             try:
@@ -56,7 +64,10 @@ class OpenAIProvider(LLMProvider):
             except json.JSONDecodeError:
                 args = {}
             calls.append(ToolCall(tc.id, tc.function.name, args))
-        return LLMResponse(text=msg.content, tool_calls=calls)
+        text = msg.content
+        if choice.finish_reason == "length" and not calls:
+            text = (text or "") + TRUNCATED_NOTE
+        return LLMResponse(text=text, tool_calls=calls)
 
 
 @dataclass(frozen=True)
@@ -71,7 +82,7 @@ class CompatPreset:
 
 COMPAT_PRESETS: dict[str, CompatPreset] = {
     "ollama": CompatPreset("OLLAMA", "http://localhost:11434/v1", "qwen2.5:7b", needs_key=False),
-    "groq": CompatPreset("GROQ", "https://api.groq.com/openai/v1", "llama-3.3-70b-versatile",
+    "groq": CompatPreset("GROQ", "https://api.groq.com/openai/v1", "openai/gpt-oss-120b",
                          key_url="https://console.groq.com/keys"),
     "gemini": CompatPreset("GEMINI", "https://generativelanguage.googleapis.com/v1beta/openai/",
                            "gemini-3.8-flash", key_url="https://aistudio.google.com/apikey"),

@@ -36,5 +36,5 @@ def demo_script() -> list[LLMResponse]:
                     tool_calls=[ToolCall("m3", "correlations", {})]),
         LLMResponse(text="(mock) Dataset descrito y correlaciones calculadas."),
         LLMResponse(text="(mock) El analista revisó el dataset. Configura "
-                         "LLM_PROVIDER=anthropic|openai|ollama para un análisis real."),
+                         "LLM_PROVIDER=groq|gemini|anthropic|openai|ollama para un análisis real."),
     ]
