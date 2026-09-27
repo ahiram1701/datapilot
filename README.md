@@ -5,7 +5,7 @@ Subes un CSV, haces una pregunta en lenguaje natural ("¿qué variables predicen
 coordina agentes especialistas que exploran los datos, entrenan y validan modelos, y explican los resultados.
 Cada paso del razonamiento (Thought → Action → Observation) se transmite en vivo a la interfaz.
 
-![CI](../../actions/workflows/ci.yml/badge.svg)
+![CI](../../actions/workflows/ci.yml/badge.svg) [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
 
 ![Demo de DataPilot: el equipo de agentes analiza clientes_churn.csv y propone cómo aumentar la retención](docs/demo.gif)
 
@@ -134,3 +134,6 @@ scripts/      make_samples.py
 - Agente que genere gráficas (matplotlib → imagen en la UI).
 - Ejecución de tools en paralelo y caché de resultados.
 - Evaluación automática de las respuestas de los agentes (LLM-as-judge).
+
+## Licencia
+MIT © 2026 A. Hiram Saucedo G. Consulta [LICENSE](LICENSE).
