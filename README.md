@@ -19,7 +19,7 @@ flowchart LR
     DA --> T1[describe_dataset<br/>correlations]
     ML --> T2[train_model · cross_validate<br/>gradient_descent_regression]
     EX --> V[(ChromaDB<br/>base vectorial)]
-    O & DA & ML & EX -.-> LLM{{LLMProvider<br/>Anthropic · OpenAI · Ollama · Mock}}
+    O & DA & ML & EX -.-> LLM{{LLMProvider<br/>Anthropic · OpenAI · Groq · Gemini · Ollama · Mock}}
 ```
 
 | Capa | Qué hace | Archivo |
@@ -59,13 +59,22 @@ Abre http://localhost:5173
 
 Sin API key funciona con `LLM_PROVIDER=mock`, un proveedor determinista que recorre el flujo completo.
 
+### Probar gratis en 2 minutos
+1. Crea una key gratuita en [Groq](https://console.groq.com/keys) (sin tarjeta) o en [Google AI Studio](https://aistudio.google.com/apikey).
+2. En `.env` pon `LLM_PROVIDER=groq` y `GROQ_API_KEY=...` (o `gemini` y `GEMINI_API_KEY=...`).
+3. Reinicia el backend, carga `viviendas.csv` y pregunta: *"¿Qué variables influyen más en el precio? Compara modelos."*
+
 ### Proveedores soportados
-| `LLM_PROVIDER` | Variables | Notas |
-|---|---|---|
-| `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | Tool use nativo de Claude |
-| `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL` | Function calling |
-| `ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | Modelos locales y gratis (reusa el proveedor OpenAI) |
-| `mock` | — | Tests y CI sin keys |
+| `LLM_PROVIDER` | Variables | Costo | Notas |
+|---|---|---|---|
+| `groq` | `GROQ_API_KEY`, `GROQ_MODEL` | **Gratis** | Llama 3.3 70B, muy rápido |
+| `gemini` | `GEMINI_API_KEY`, `GEMINI_MODEL` | **Gratis** | Gemini Flash |
+| `ollama` | `OLLAMA_BASE_URL`, `OLLAMA_MODEL` | **Gratis** (local) | Corre en tu equipo |
+| `anthropic` | `ANTHROPIC_API_KEY`, `ANTHROPIC_MODEL` | De pago | Tool use nativo de Claude |
+| `openai` | `OPENAI_API_KEY`, `OPENAI_MODEL` | De pago | Function calling |
+| `mock` | — | — | Tests y CI sin keys |
+
+Groq, Gemini y Ollama exponen APIs compatibles con OpenAI, así que comparten `OpenAIProvider`. Cada uno es solo un *preset* (base_url, modelo por defecto y variable de la key) en [`openai_p.py`](backend/app/llm/openai_p.py).
 
 ## Tests
 ```bash
@@ -95,7 +104,7 @@ Para datos tabulares como los de este proyecto, los ensambles de árboles suelen
 ## Estructura
 ```
 backend/app/
-  llm/        base.py · anthropic_p.py · openai_p.py (+Ollama) · mock_p.py · factory.py
+  llm/        base.py · anthropic_p.py · openai_p.py (+Groq, Gemini, Ollama) · mock_p.py · factory.py
   agents/     react.py · tools.py · team.py
   ml/         tools_ml.py · from_scratch.py
   rag/        store.py · docs/*.md
