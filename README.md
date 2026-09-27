@@ -91,15 +91,6 @@ Los errores 429 por minuto se reintentan automáticamente respetando `retry-afte
 
 Groq, Gemini y Ollama exponen APIs compatibles con OpenAI, así que comparten `OpenAIProvider`. Cada uno es solo un *preset* (base_url, modelo por defecto y variable de la key) en [`openai_p.py`](backend/app/llm/openai_p.py).
 
-### Regenerar la demo
-El GIF se graba automáticamente con Playwright contra la app en ejecución:
-```bash
-pip install -r scripts/requirements-demo.txt
-playwright install chromium
-python scripts/record_demo.py --url http://localhost:8080
-```
-Admite `--dataset`, `--question` y `--out`. Solo guarda los frames que cambian, así que las esperas del LLM se comprimen.
-
 ## Tests
 ```bash
 cd backend && pytest -q
