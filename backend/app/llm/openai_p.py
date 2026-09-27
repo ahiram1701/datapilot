@@ -18,7 +18,7 @@ class OpenAIProvider(LLMProvider):
         # max_retries: el SDK reintenta 429/5xx con backoff exponencial
         self.client = OpenAI(base_url=base_url, api_key=api_key or os.getenv("OPENAI_API_KEY"),
                              max_retries=max_retries)
-        self.model = model or os.getenv("OPENAI_MODEL", "gpt-4o-mini")
+        self.model = model or (os.getenv("OPENAI_MODEL") or "gpt-4o-mini")
 
     @staticmethod
     def _to_api_messages(system: str, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -84,8 +84,8 @@ def make_compat_provider(name: str) -> OpenAIProvider:
     if p.needs_key and not key:
         raise ValueError(f"Falta {p.env_prefix}_API_KEY en .env (consíguela gratis en {p.key_url})")
     provider = OpenAIProvider(
-        model=os.getenv(f"{p.env_prefix}_MODEL", p.default_model),
-        base_url=os.getenv(f"{p.env_prefix}_BASE_URL", p.base_url),
+        model=(os.getenv(f"{p.env_prefix}_MODEL") or p.default_model),
+        base_url=(os.getenv(f"{p.env_prefix}_BASE_URL") or p.base_url),
         api_key=key or name,  # Ollama ignora la key, pero el cliente exige una
         max_retries=5,        # los planes gratuitos devuelven 429 con frecuencia
     )

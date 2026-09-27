@@ -6,7 +6,7 @@ from .base import LLMProvider
 def get_provider(name: str | None = None) -> LLMProvider:
     """Crea el proveedor según LLM_PROVIDER. Imports perezosos: no hace falta
     instalar el SDK de un proveedor que no usas."""
-    name = (name or os.getenv("LLM_PROVIDER", "mock")).lower()
+    name = (name or (os.getenv("LLM_PROVIDER") or "mock")).lower()
     if name == "anthropic":
         from .anthropic_p import AnthropicProvider
         return AnthropicProvider()

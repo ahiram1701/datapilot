@@ -42,3 +42,13 @@ def test_default_is_mock(monkeypatch):
 def test_unknown_provider():
     with pytest.raises(ValueError):
         get_provider("nope")
+
+
+def test_empty_env_values_fall_back_to_defaults(monkeypatch):
+    # En .env es común dejar "GROQ_MODEL=" vacío: debe usarse el modelo por defecto
+    monkeypatch.setenv("GROQ_API_KEY", "test-key")
+    monkeypatch.setenv("GROQ_MODEL", "")
+    monkeypatch.setenv("GROQ_BASE_URL", "")
+    provider = get_provider("groq")
+    assert provider.model == "llama-3.3-70b-versatile"
+    assert "api.groq.com" in str(provider.client.base_url)
