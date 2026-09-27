@@ -7,6 +7,10 @@ Cada paso del razonamiento (Thought → Action → Observation) se transmite en 
 
 ![CI](../../actions/workflows/ci.yml/badge.svg)
 
+![Demo de DataPilot: el equipo de agentes analiza clientes_churn.csv y propone cómo aumentar la retención](docs/demo.gif)
+
+<sub>Pregunta: *"¿Cómo se puede aumentar la retención de clientes?"* sobre `clientes_churn.csv`. El orquestador delega al DataAnalyst (estadísticas, correlaciones, segmentos) y al MLEngineer (regresión logística con coeficientes con signo), y sintetiza recomendaciones con cifras que salen de las herramientas. Modelo: `openai/gpt-oss-120b` en el plan gratuito de Groq. Las esperas del LLM están aceleradas.</sub>
+
 ## Arquitectura
 
 ```mermaid
@@ -16,7 +20,7 @@ flowchart LR
     O -- tool: ask_data_analyst --> DA[DataAnalyst<br/>ReAct]
     O -- tool: ask_ml_engineer --> ML[MLEngineer<br/>ReAct]
     O -- tool: ask_explainer --> EX[Explainer<br/>ReAct]
-    DA --> T1[describe_dataset<br/>correlations]
+    DA --> T1[describe_dataset<br/>correlations · segment_analysis]
     ML --> T2[train_model · cross_validate<br/>gradient_descent_regression]
     EX --> V[(ChromaDB<br/>base vectorial)]
     O & DA & ML & EX -.-> LLM{{LLMProvider<br/>Anthropic · OpenAI · Groq · Gemini · Ollama · Mock}}
@@ -28,7 +32,7 @@ flowchart LR
 | **Agente ReAct** | Loop propio (sin frameworks): razona, pide una tool, observa el resultado, repite. Límite de pasos, errores devueltos al LLM para que se autocorrija, truncado de observaciones. | [`agents/react.py`](backend/app/agents/react.py) |
 | **Multi-agente** | Patrón *agents-as-tools*: para el orquestador, cada especialista es una herramienta más. | [`agents/team.py`](backend/app/agents/team.py) |
 | **Tool use** | Registro de herramientas con JSON Schema. | [`agents/tools.py`](backend/app/agents/tools.py) |
-| **ML** | Regresión/clasificación (detección automática), regresión lineal/logística, árbol de decisión, random forest, train/test split, k-fold CV, R², MAE, RMSE, accuracy, F1. | [`ml/tools_ml.py`](backend/app/ml/tools_ml.py) |
+| **ML** | Regresión/clasificación (detección automática), análisis por segmentos, regresión lineal/logística (coeficientes con signo), árbol de decisión, random forest, train/test split, k-fold CV, R², MAE, RMSE, accuracy, F1. | [`ml/tools_ml.py`](backend/app/ml/tools_ml.py) |
 | **Matemáticas** | Regresión lineal con **descenso de gradiente implementado en NumPy**, comparada contra la solución cerrada de scikit-learn. | [`ml/from_scratch.py`](backend/app/ml/from_scratch.py) |
 | **RAG** | Base de conocimiento de conceptos de ML indexada en **ChromaDB**; el Explainer la consulta por similitud semántica. | [`rag/`](backend/app/rag) |
 | **API REST** | FastAPI: carga de CSV, datasets de ejemplo, chat con streaming **Server-Sent Events**. | [`main.py`](backend/app/main.py) |
@@ -86,6 +90,15 @@ Los planes gratuitos limitan tokens por minuto (Groq: 8K TPM, y algunos modelos 
 Los errores 429 por minuto se reintentan automáticamente respetando `retry-after`. Si una respuesta se corta, la UI lo indica con *[respuesta truncada por max_tokens]*.
 
 Groq, Gemini y Ollama exponen APIs compatibles con OpenAI, así que comparten `OpenAIProvider`. Cada uno es solo un *preset* (base_url, modelo por defecto y variable de la key) en [`openai_p.py`](backend/app/llm/openai_p.py).
+
+### Regenerar la demo
+El GIF se graba automáticamente con Playwright contra la app en ejecución:
+```bash
+pip install -r scripts/requirements-demo.txt
+playwright install chromium
+python scripts/record_demo.py --url http://localhost:8080
+```
+Admite `--dataset`, `--question` y `--out`. Solo guarda los frames que cambian, así que las esperas del LLM se comprimen.
 
 ## Tests
 ```bash
