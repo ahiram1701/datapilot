@@ -29,10 +29,15 @@ def build_data_analyst(llm: LLMProvider, df: pd.DataFrame) -> ReActAgent:
     tools.add("correlations", "Correlaciones de Pearson; con target, ranking contra esa columna.",
               schema({"target": {"type": "string"}}),
               lambda target=None: tools_ml.correlations(df, target))
+    tools.add("segment_analysis", "Promedio del objetivo por segmento (categorías y cuartiles "
+              "numéricos). Con objetivo 0/1 da la tasa por grupo, p. ej. abandono por tipo de contrato.",
+              schema(TARGET, ["target"]), lambda target: tools_ml.segment_analysis(df, target))
     return ReActAgent(
         "DataAnalyst",
         "Eres un analista de datos. Explora el dataset con tus herramientas y reporta "
         "hallazgos concretos con números (tamaño, nulos, distribuciones, correlaciones). "
+        "Si la pregunta gira en torno a una variable objetivo, usa correlations Y "
+        "segment_analysis: correlations ignora las columnas categóricas. "
         f"Columnas: {_columns_hint(df)}. Responde en español y de forma concisa.",
         llm, tools)
 
@@ -58,7 +63,8 @@ def build_ml_engineer(llm: LLMProvider, df: pd.DataFrame) -> ReActAgent:
         "MLEngineer",
         "Eres ingeniero de ML. Compara al menos dos tipos de modelo, valida con "
         "cross-validation y detecta overfitting (métrica train vs test). "
-        f"Columnas: {_columns_hint(df)}. Reporta métricas exactas. Responde en español.",
+        f"Columnas: {_columns_hint(df)}. Reporta solo las métricas exactas que devuelvan "
+        "tus herramientas, de forma concisa. Responde en español.",
         llm, tools)
 
 
@@ -91,6 +97,11 @@ def build_orchestrator(llm: LLMProvider, df: pd.DataFrame, on_step: StepCallback
         "Coordinas un equipo de agentes para responder preguntas sobre un dataset. "
         "Divide el problema, delega a los especialistas con instrucciones concretas y "
         "sintetiza una respuesta final en español con los números clave. "
+        "Usa SOLO cifras y métricas que tus especialistas hayan obtenido con sus "
+        "herramientas, con el nombre exacto que devuelven (p. ej. accuracy_test, "
+        "f1_macro_test); nunca inventes métricas, segmentos ni modelos que no se calcularon. "
+        "Respuesta final breve (máximo ~200 palabras) en markdown: hallazgos con números "
+        "y, si aplica, recomendaciones accionables. "
         f"El dataset tiene {len(df)} filas; columnas: {_columns_hint(df)}.",
         llm, tools, max_steps=10)
 

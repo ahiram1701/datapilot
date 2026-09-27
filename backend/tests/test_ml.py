@@ -47,3 +47,24 @@ def test_gradient_descent_matches_closed_form():
     np.testing.assert_allclose(model.w, [2.0, -1.0, 0.5], atol=0.05)
     assert abs(model.b - 3.0) < 0.05
     assert model.loss_history[-1] < model.loss_history[0]  # la pérdida baja
+
+
+def test_segment_analysis_matches_groupby(churn):
+    res = tools_ml.segment_analysis(churn, "abandona")
+    by_contract = res["segments"]["contrato"]
+    expected = churn.groupby("contrato")["abandona"].mean().round(4).to_dict()
+    assert {k: v["mean"] for k, v in by_contract.items()} == expected
+    assert next(iter(by_contract)) == "mensual"  # ordenado de mayor a menor tasa
+    assert len(res["segments"]["meses_cliente"]) == 4  # cuartiles
+
+
+def test_linear_model_keeps_coefficient_sign(churn):
+    # Más meses como cliente => menos abandono: el coeficiente debe ser negativo
+    res = tools_ml.train_model(churn, "abandona", "linear")
+    assert res["coefficients"]["meses_cliente"] < 0
+    assert res["coefficients"]["tickets_soporte"] > 0
+
+
+def test_tree_importance_warns_it_has_no_direction(churn):
+    res = tools_ml.train_model(churn, "abandona", "random_forest")
+    assert "feature_importance" in res and "dirección" in res["note"]
