@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useAgentChat } from '../hooks/useAgentChat'
 import AgentTrace from './AgentTrace'
+import Markdown from './Markdown'
 
 const SUGGESTIONS = [
   '¿Qué variables influyen más en el objetivo? Entrena y compara modelos.',
@@ -39,7 +40,7 @@ export default function ChatPanel({ dataset }) {
         <article key={i} className="turn">
           <p className="question">🧑 {t.question}</p>
           <AgentTrace steps={t.steps} />
-          {t.answer && <div className="answer">{t.answer}</div>}
+          {t.answer && <div className="answer"><Markdown>{t.answer}</Markdown></div>}
           {t.error && <p className="error">{t.error}</p>}
           {running && i === turns.length - 1 && !t.answer && <p className="muted pulse">Los agentes están trabajando…</p>}
         </article>

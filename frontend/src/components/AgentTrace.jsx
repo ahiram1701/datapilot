@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import Markdown from './Markdown'
 
 const LABELS = {
   thought: 'Thought',
@@ -18,7 +19,10 @@ function Step({ step }) {
         <span className="kind">{LABELS[step.type] ?? step.type}</span>
         {long && <span className="toggle">{open ? '▾' : '▸'}</span>}
       </div>
-      <pre className="step-body">{open || !long ? step.content : step.content.slice(0, 160) + '…'}</pre>
+      {/* Las respuestas de los especialistas vienen en markdown; acciones y observaciones son JSON */}
+      {step.type === 'final' && (open || !long)
+        ? <div className="step-body step-md"><Markdown>{step.content}</Markdown></div>
+        : <pre className="step-body">{open || !long ? step.content : step.content.slice(0, 160) + '…'}</pre>}
     </li>
   )
 }

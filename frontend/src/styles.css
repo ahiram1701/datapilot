@@ -33,7 +33,7 @@ th, td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: 
 .chat-header { display: flex; justify-content: space-between; align-items: baseline; }
 .turn { border-top: 1px solid var(--border); padding: 12px 0; }
 .question { font-weight: 600; margin: 0 0 8px; }
-.answer { white-space: pre-wrap; background: color-mix(in srgb, var(--accent) 8%, transparent); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 6px; line-height: 1.5; }
+.answer { background: color-mix(in srgb, var(--accent) 8%, transparent); border-left: 3px solid var(--accent); padding: 10px 12px; border-radius: 6px; line-height: 1.5; }
 .trace { margin-bottom: 8px; font-size: 13px; }
 .trace summary { cursor: pointer; color: var(--muted); }
 .trace ol { list-style: none; padding: 0; margin: 8px 0; display: grid; gap: 6px; }
@@ -51,3 +51,11 @@ th, td { padding: 4px 8px; border-bottom: 1px solid var(--border); white-space: 
 .ask input { flex: 1; padding: 9px 12px; border-radius: 8px; border: 1px solid var(--border); background: var(--bg); color: var(--text); font: inherit; }
 .pulse { animation: pulse 1.2s ease-in-out infinite; }
 @keyframes pulse { 50% { opacity: .4; } }
+.markdown > :first-child { margin-top: 0; } .markdown > :last-child { margin-bottom: 0; }
+.markdown p, .markdown ul, .markdown ol { margin: 6px 0; }
+.markdown h1, .markdown h2, .markdown h3 { font-size: 15px; margin: 12px 0 6px; }
+.markdown table { width: auto; margin: 8px 0; font-size: 13px; display: block; overflow-x: auto; }
+.markdown th { background: color-mix(in srgb, var(--accent) 10%, transparent); }
+.markdown th, .markdown td { border: 1px solid var(--border); white-space: normal; }
+.markdown hr { border: 0; border-top: 1px solid var(--border); margin: 10px 0; }
+.step-md { font-family: inherit; font-size: 13px; }
