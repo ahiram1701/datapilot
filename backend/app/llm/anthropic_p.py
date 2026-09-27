@@ -11,7 +11,7 @@ class AnthropicProvider(LLMProvider):
 
     def __init__(self, model: str | None = None):
         self.client = anthropic.Anthropic()
-        self.model = model or os.getenv("ANTHROPIC_MODEL", "claude-opus-5")
+        self.model = model or (os.getenv("ANTHROPIC_MODEL") or "claude-opus-5")
 
     def _to_api_messages(self, messages: list[dict[str, Any]]) -> list[dict[str, Any]]:
         out: list[dict[str, Any]] = []
