@@ -68,6 +68,20 @@ Sin API key funciona con `LLM_PROVIDER=mock`, un proveedor determinista que reco
 2. En `.env` pon `LLM_PROVIDER=groq` y `GROQ_API_KEY=...` (o `gemini` y `GEMINI_API_KEY=...`).
 3. Reinicia el backend, carga `viviendas.csv` y pregunta: *"¿Qué variables influyen más en el precio? Compara modelos."*
 
+### Conectar tu base de datos PostgreSQL
+Además de CSV, DataPilot puede analizar una base PostgreSQL **en vivo**: los agentes exploran el esquema (`list_tables`, `describe_table`), consultan con SQL (`run_sql`) y entrenan modelos sobre el resultado de un `SELECT`, sin copiar tablas completas a memoria.
+
+1. En el panel **Datos**, pega una URL `postgresql://usuario:clave@host:5432/base` y pulsa **Conectar**.
+2. Pregunta, p. ej.: *"¿Qué factores explican el abandono de clientes?"*
+
+Seguridad, porque el SQL lo escribe un LLM:
+- La app solo acepta una consulta `SELECT`/`WITH` por llamada y le aplica un `LIMIT` externo.
+- La sesión se abre con `default_transaction_read_only=on` y `statement_timeout`, así que el servidor rechaza cualquier escritura aunque algo evada el filtro.
+- Usa un **usuario de solo lectura**. Las credenciales viven solo en memoria del backend y nunca se devuelven al navegador.
+
+Con `docker compose up` se levanta una base de demo (`scripts/demo_db.sql`) con los datasets de ejemplo:
+`postgresql://datapilot_ro:datapilot_ro@postgres:5432/demo`. Si tu base corre en tu equipo y el backend en Docker, usa `host.docker.internal` como host.
+
 ### Proveedores soportados
 | `LLM_PROVIDER` | Variables | Costo | Notas |
 |---|---|---|---|
@@ -123,10 +137,11 @@ backend/app/
   agents/     react.py · tools.py · team.py
   ml/         tools_ml.py · from_scratch.py
   rag/        store.py · docs/*.md
+  db/         postgres.py (conexión SQL en vivo, solo lectura)
   main.py
 frontend/src/ App.jsx · api.js · hooks/useAgentChat.js · components/
 sample_data/  viviendas.csv (regresión) · clientes_churn.csv (clasificación)
-scripts/      make_samples.py
+scripts/      make_samples.py · demo_db.sql
 ```
 
 ## Posibles mejoras

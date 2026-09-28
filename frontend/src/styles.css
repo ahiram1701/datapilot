@@ -24,6 +24,12 @@ main { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 3fr); gap:
 button:disabled { opacity: .5; cursor: default; }
 .samples { display: flex; flex-wrap: wrap; gap: 6px; align-items: center; margin: 10px 0; }
 .chip { background: transparent; color: var(--text); border: 1px solid var(--border); padding: 4px 10px; font-size: 13px; text-align: left; }
+.db-connect { margin: 10px 0; }
+.db-row { display: flex; gap: 6px; margin-top: 4px; }
+.db-row input { flex: 1; min-width: 0; padding: 7px 10px; border: 1px solid var(--border); border-radius: 8px; background: var(--panel); color: var(--text); font: inherit; }
+.table-list { list-style: none; margin: 0; padding: 0; max-height: 220px; overflow-y: auto; border: 1px solid var(--border); border-radius: 8px; }
+.table-list li { padding: 6px 10px; border-bottom: 1px solid var(--border); font-size: 14px; }
+.table-list li:last-child { border-bottom: 0; }
 .link { background: none; color: var(--accent); padding: 0; }
 .muted { color: var(--muted); } .error { color: var(--err); }
 .table-wrap { overflow-x: auto; border: 1px solid var(--border); border-radius: 8px; }

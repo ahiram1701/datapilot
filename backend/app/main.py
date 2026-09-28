@@ -19,6 +19,7 @@ from pydantic import BaseModel
 load_dotenv()
 
 from .agents.team import run_team  # noqa: E402  (después de cargar .env)
+from .db.postgres import SQLSource, normalize_url  # noqa: E402
 from .llm.factory import get_provider  # noqa: E402
 
 SAMPLE_DIR = Path(os.getenv("SAMPLE_DIR", Path(__file__).resolve().parents[2] / "sample_data"))
@@ -30,6 +31,9 @@ app.add_middleware(CORSMiddleware, allow_origins=os.getenv("CORS_ORIGINS", "*").
 
 # Almacenamiento en memoria: suficiente para una demo de un solo proceso.
 DATASETS: dict[str, pd.DataFrame] = {}
+# Conexiones vivas a bases de datos. Las credenciales solo viven en el engine:
+# nunca se devuelven al cliente ni se escriben en logs.
+CONNECTIONS: dict[str, SQLSource] = {}
 
 
 def _dataset_info(dataset_id: str, name: str, df: pd.DataFrame) -> dict:
@@ -87,23 +91,62 @@ async def upload_dataset(file: UploadFile = File(...)):
     return _register(file.filename, df)
 
 
+class ConnectionRequest(BaseModel):
+    url: str
+
+
+def _connection_info(connection_id: str, source: SQLSource) -> dict:
+    return {"id": connection_id, "kind": "sql", "name": source.display_name,
+            "tables": source.list_tables()}
+
+
+@app.post("/connections")
+def connect_database(req: ConnectionRequest):
+    try:
+        url = normalize_url(req.url)
+    except ValueError as exc:
+        raise HTTPException(400, str(exc)) from exc
+    try:
+        source = SQLSource.connect(url)
+        connection_id = uuid.uuid4().hex[:8]
+        info = _connection_info(connection_id, source)
+    except Exception as exc:  # noqa: BLE001
+        # El mensaje del driver puede incluir la URL: solo exponemos el tipo de error.
+        raise HTTPException(400, f"No se pudo conectar a la base de datos ({type(exc).__name__}). "
+                                 "Revisa host, puerto, usuario y contraseña.") from exc
+    CONNECTIONS[connection_id] = source
+    return info
+
+
+@app.delete("/connections/{connection_id}")
+def disconnect_database(connection_id: str):
+    source = CONNECTIONS.pop(connection_id, None)
+    if source is None:
+        raise HTTPException(404, "Conexión no encontrada")
+    source.close()
+    return {"ok": True}
+
+
 class ChatRequest(BaseModel):
-    dataset_id: str
+    dataset_id: str  # id de un dataset CSV o de una conexión a base de datos
     question: str
 
 
 @app.post("/chat")
 def chat(req: ChatRequest):
     """Ejecuta el equipo de agentes y transmite cada paso como Server-Sent Events."""
-    df = DATASETS.get(req.dataset_id)
-    if df is None:
+    data = DATASETS.get(req.dataset_id)
+    if data is None:
+        data = CONNECTIONS.get(req.dataset_id)
+    if data is None:
         raise HTTPException(404, "Dataset no encontrado; súbelo de nuevo")
+    is_sql = isinstance(data, SQLSource)
 
     events: queue.Queue = queue.Queue()
 
     def worker():
         try:
-            answer = run_team(get_provider(), df, req.question,
+            answer = run_team(get_provider(sql=is_sql), data, req.question,
                               on_step=lambda s: events.put(("step", s.to_dict())))
             events.put(("answer", {"answer": answer}))
         except Exception as exc:  # noqa: BLE001
