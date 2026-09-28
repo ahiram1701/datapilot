@@ -9,6 +9,19 @@ services:
     ports:
       - "8000:8000"
 
+  # Base de demo: conéctala desde la UI con
+  # postgresql://datapilot_ro:datapilot_ro@postgres:5432/demo
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: demo
+      POSTGRES_PASSWORD: postgres
+    volumes:
+      - ./scripts/demo_db.sql:/docker-entrypoint-initdb.d/demo_db.sql:ro
+      - ./sample_data:/sample_data:ro
+    ports:
+      - "127.0.0.1:5433:5432"   # 5433 en el host: no choca con un Postgres local en 5432
+
   frontend:
     build: ./frontend
     depends_on:

@@ -47,6 +47,16 @@ def test_max_steps_stops_infinite_loops():
     assert "límite" in agent.run("x")
 
 
+def test_max_steps_asks_for_partial_answer_instead_of_losing_work():
+    calls = [LLMResponse(text=None, tool_calls=[ToolCall(str(i), "add", {"a": 1, "b": 1})])
+             for i in range(3)]
+    agent, llm = make_calc_agent(calls + [LLMResponse(text="Parcial: 1+1=2")])
+    steps = []
+    assert agent.run("x", steps.append) == "Parcial: 1+1=2"
+    assert steps[-1].type == "final"
+    assert "NO uses más herramientas" in llm.calls[-1]["messages"][-1]["content"]
+
+
 def test_orchestrator_delegates_to_specialist(housing):
     llm = MockProvider([
         # Orquestador delega

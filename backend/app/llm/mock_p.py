@@ -38,3 +38,17 @@ def demo_script() -> list[LLMResponse]:
         LLMResponse(text="(mock) El analista revisó el dataset. Configura "
                          "LLM_PROVIDER=groq|gemini|anthropic|openai|ollama para un análisis real."),
     ]
+
+
+def demo_script_sql() -> list[LLMResponse]:
+    """Igual que demo_script, pero con las tools del modo base de datos."""
+    return [
+        LLMResponse(text="Delego la exploración al analista de datos.",
+                    tool_calls=[ToolCall("m1", "ask_data_analyst",
+                                         {"task": "Describe las tablas de la base"})]),
+        LLMResponse(text="Primero veo qué tablas hay.",
+                    tool_calls=[ToolCall("m2", "list_tables", {})]),
+        LLMResponse(text="(mock) Tablas listadas."),
+        LLMResponse(text="(mock) El analista revisó el esquema. Configura "
+                         "LLM_PROVIDER=groq|gemini|anthropic|openai|ollama para un análisis real."),
+    ]

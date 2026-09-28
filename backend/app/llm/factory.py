@@ -3,9 +3,9 @@ import os
 from .base import LLMProvider
 
 
-def get_provider(name: str | None = None) -> LLMProvider:
+def get_provider(name: str | None = None, *, sql: bool = False) -> LLMProvider:
     """Crea el proveedor según LLM_PROVIDER. Imports perezosos: no hace falta
-    instalar el SDK de un proveedor que no usas."""
+    instalar el SDK de un proveedor que no usas. `sql` solo cambia el guion del mock."""
     name = (name or (os.getenv("LLM_PROVIDER") or "mock")).lower()
     if name == "anthropic":
         from .anthropic_p import AnthropicProvider
@@ -17,6 +17,6 @@ def get_provider(name: str | None = None) -> LLMProvider:
         from .openai_p import make_compat_provider
         return make_compat_provider(name)
     if name == "mock":
-        from .mock_p import MockProvider, demo_script
-        return MockProvider(demo_script())
+        from .mock_p import MockProvider, demo_script, demo_script_sql
+        return MockProvider(demo_script_sql() if sql else demo_script())
     raise ValueError(f"Proveedor LLM desconocido: {name}")

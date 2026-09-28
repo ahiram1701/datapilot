@@ -18,6 +18,16 @@ export function uploadDataset(file) {
   return fetch(`${BASE}/datasets`, { method: 'POST', body: form }).then(json)
 }
 
+export const connectDatabase = (url) =>
+  fetch(`${BASE}/connections`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url }),
+  }).then(json)
+
+export const disconnectDatabase = (id) =>
+  fetch(`${BASE}/connections/${id}`, { method: 'DELETE' }).then(json)
+
 /**
  * POST /chat devuelve Server-Sent Events. EventSource solo soporta GET,
  * así que leemos el stream a mano y separamos eventos por línea en blanco.
