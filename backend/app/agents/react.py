@@ -65,6 +65,14 @@ class ReActAgent:
                 messages.append({"role": "tool", "tool_call_id": call.id,
                                  "name": call.name, "content": result})
 
+        # Sin pasos restantes: en vez de tirar lo ya averiguado, pide un cierre con lo obtenido.
         msg = f"{self.name} alcanzó el límite de {self.max_steps} pasos sin respuesta final."
+        messages.append({"role": "user", "content":
+                         "Se acabaron tus pasos: NO uses más herramientas. Responde ya con lo que "
+                         "obtuviste hasta ahora e indica brevemente qué quedó pendiente."})
+        resp = self.llm.chat(self.system, messages, self.tools.specs)
+        if resp.text and not resp.tool_calls:
+            emit(Step(self.name, "final", resp.text))
+            return resp.text
         emit(Step(self.name, "error", msg))
         return msg

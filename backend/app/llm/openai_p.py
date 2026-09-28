@@ -5,7 +5,7 @@ import os
 from dataclasses import dataclass
 from typing import Any
 
-from openai import OpenAI
+from openai import BadRequestError, OpenAI
 
 from .base import TRUNCATED_NOTE, LLMProvider, LLMResponse, ToolCall, ToolSpec, env_int
 
@@ -52,9 +52,17 @@ class OpenAIProvider(LLMProvider):
             kwargs["tools"] = [{"type": "function", "function": {
                 "name": t.name, "description": t.description, "parameters": t.parameters,
             }} for t in tools]
-        resp = self.client.chat.completions.create(
-            model=self.model, messages=self._to_api_messages(system, messages), **kwargs,
-        )
+        api_messages = self._to_api_messages(system, messages)
+        for attempt in range(3):
+            try:
+                resp = self.client.chat.completions.create(
+                    model=self.model, messages=api_messages, **kwargs)
+                break
+            except BadRequestError as exc:
+                # Groq valida el JSON de las tool calls y a veces el modelo lo genera mal;
+                # como el muestreo no es determinista, reintentar suele bastar.
+                if exc.code != "tool_use_failed" or attempt == 2:
+                    raise
         choice = resp.choices[0]
         msg = choice.message
         calls = []
